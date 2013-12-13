@@ -1,0 +1,356 @@
+###
+### SECTION: Macros: pre-reqs
+###
+
+# Ignoring automatic setting of 'provides'
+# (I will manually set any of them below)
+#define __find_provides   %{nil}
+
+# Ignoring automatic setting of requirements
+#define __find_requires   %{nil}
+#define _use_internal_dependency_generator           0
+
+#define _binaries_in_noarch_packages_terminate_build 0
+#define _missing_doc_files_terminate_build           0
+#define _unpackaged_files_terminate_build            0
+#define _transaction_color                           1
+
+%define	_normalized_cpu	%(echo %{_target_cpu} | sed 's/^ppc/powerpc/;s/i.86/i386/;s/sparcv./sparc/')
+
+#define packager    %{getenv:RPM_PACKAGER}
+#define packager    %{_gpg_name}
+%define vendor      Edenbrasil (http://baby.com.br)
+%define vendor_tag  edenbr
+
+# if rhel: rhel5 define el5, rhel5 define el6, ....
+%define dist        %{?rhel:.el%{rhel}}.%{vendor_tag}
+
+# centos: replacing 'unknown' for 'redhat' as a target
+%if %{centos}
+%define _host        x86_64-redhat-linux-gnu
+%define _host_vendor redhat
+%endif
+
+
+# building using a vagrant machine
+%define _specdir    /vagrant/%{name}
+%define _sourcedir  /vagrant/%{name}/src
+%define _rpmdir     /vagrant/%{name}
+%define _srcrpmdir  /vagrant/%{name}
+
+# list of files
+%define list_of_files %{_srcrpmdir}/%{name}-%{version}-%{release}.txt
+
+###
+### SECTION: Introduction
+###
+
+# ruby dirs for this rpm
+
+
+
+# this build
+%define ruby_version  1.9.3
+%define patchlevel    374
+%define plevel        p%{patchlevel}
+%define release       1
+
+%define major_minor_version      1.9
+%define ruby_version_patch_level 1.9.3.%{patch_level}
+
+%define irb_version       %{ruby_version}.%{patch_level}
+%define rake_version       0.9.2.2
+%define rdoc_version       3.9.4
+%define bigdecimal_version 1.1.0
+%define io_console_version 0.3
+%define json_version       1.5.4
+%define minitest_version   2.5.1
+
+%define rubygems_version   1.8.23
+
+%define ruby_abi  1.9.1
+
+%define ruby_archive %{name}-%{ruby_version}-p%{patchlevel}
+
+%define ruby_libdir     %{_datadir}/%{name}
+%define ruby_libarchdir  %{_libdir}/%{name}
+
+# This is the general location for libs/archs compatible with all
+# or most of the Ruby versions available in the Fedora repositories.
+%define ruby_vendordir     vendor_ruby
+%define ruby_vendorlibdir  %{_datadir}/ruby/%{ruby_vendordir}
+%define ruby_vendorarchdir  %{_libdir}/ruby/%{ruby_vendordir}
+
+# This is the local lib/arch and should not be used for packaging.
+%define ruby_sitedir     site_ruby
+%define ruby_sitelibdir  %{_prefix}/local/share/ruby/%{ruby_sitedir}
+%define ruby_sitearchdir %{_prefix}/local/%{_lib}/ruby/%{ruby_sitedir}
+
+
+
+Name:    ruby
+Version: %{ruby_version}.%{patchlevel}
+Release: %{release}%{?dist}
+
+Provides: %{name}
+Provides: ruby-devel ruby-libs
+
+Provides: ruby(abi) = %{ruby_abi}
+Provides: ri = %{version}-%{release}
+
+Provides: irb = %{irb_version}
+Provides: ruby(irb) = %{irb_version}
+Provides: gem = %{version}-%{release}
+Provides: ruby(rubygems) = %{version}-%{release}
+Provides: rake = %{rake_version}
+Provides: rubygem(rake) = %{rake_version}
+Provides: rdoc = %{rdoc_version}
+Provides: rubygem(rdoc) = %{rdoc_version}
+Provides: rubygem(bigdecimal) = %{bigdecimal_version}
+Provides: rubygem(io-console) = %{io_console_version}
+Provides: rubygem(json) = %{json_version}
+Provides: rubygem(minitest) = %{minitest_version}
+#rovides: ruby(tcltk) = %{ruby_version_patch_level}-%{release}
+
+
+BuildRoot:     %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+BuildRequires: gcc, make, autoconf
+BuildRequires: zlib-devel, openssl-devel
+BuildRequires: gdbm-devel, db4-devel, libffi-devel, libyaml-devel, readline-devel
+BuildRequires: ncurses-devel
+#uildRequires: tk-devel
+BuildRequires: procps
+
+# This was set manually after a test install...
+#equires: libc.so.6()(64bit)
+#equires: rpmlib(CompressedFileNames) <= 3.0.4-1
+#equires: rpmlib(PartialHardlinkSets) <= 4.0.4-1
+#equires: rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+#equires: rtld(GNU_HASH)
+
+
+Source0: http://ftp.ruby-lang.org/pub/ruby/1.9/%{ruby_archive}.tar.gz
+Source1: operating_system.rb
+
+# http://redmine.ruby-lang.org/issues/5231
+Patch0: ruby-1.9.3-disable-versioned-paths.patch
+
+# TODO: Should be submitted upstream?
+Patch1: ruby-1.9.3-arch-specific-dir.patch
+
+# http://redmine.ruby-lang.org/issues/5281
+Patch2: ruby-1.9.3-added-site-and-vendor-arch-flags.patch
+
+# Force multiarch directories for i.86 to be always named i386. This solves
+# some differencies in build between Fedora and RHEL.
+Patch3: ruby-1.9.3-always-use-i386.patch
+
+# http://redmine.ruby-lang.org/issues/5465
+Patch4: ruby-1.9.3-fix-s390x-build.patch
+
+# Fix the uninstaller, so that it doesn't say that gem doesn't exist
+# when it exists outside of the GEM_HOME (already fixed in the upstream)
+Patch5: ruby-1.9.3-rubygems-1.8.11-uninstaller.patch
+
+# Already fixed upstream:
+# https://github.com/ruby/ruby/commit/f212df564a4e1025f9fb019ce727022a97bfff53
+#atch7: ruby-1.9.3-bignum-test-fix.patch
+
+# Allows to install RubyGems into custom directory, outside of Ruby's tree.
+# http://redmine.ruby-lang.org/issues/5617
+Patch8: ruby-1.9.3-custom-rubygems-location.patch
+
+# Add support for installing binary extensions according to FHS.
+# https://github.com/rubygems/rubygems/issues/210
+Patch9: rubygems-1.8.11-binary-extensions.patch
+
+# Opening /dev/tty fails with ENXIO (ref: man 2 open) on koji.
+# Fixed in ruby 1.9.3 p327
+#Patch10: ruby-1.9.3-p286-open-devtty-on-koji.patch
+
+# Make mkmf verbose by default
+Patch12: ruby-1.9.3-mkmf-verbose.patch
+
+
+Packager: %{_gpg_name}
+Vendor:   %{vendor}
+
+Group:    Development/Languages
+Summary:  Ruby MRV - An object-oriented scripting language
+URL:      http://ruby-lang.org/
+License:  (Ruby or BSD) and Public Domain
+
+%description
+Ruby is the interpreted scripting language for quick and easy
+object-oriented programming.  It has many features to process text
+files and to do system management tasks (as in Perl).  It is simple,
+straight-forward, and extensible.
+
+
+###
+### SECTION: Prepare
+###
+
+%prep
+
+%setup -q -n %{ruby_archive}
+
+#Patch0: ruby-1.9.3-disable-versioned-paths.patch
+#Patch1: ruby-1.9.3-arch-specific-dir.patch
+#Patch2: ruby-1.9.3-added-site-and-vendor-arch-flags.patch
+#Patch8: ruby-1.9.3-custom-rubygems-location.patch
+#Patch9: rubygems-1.8.11-binary-extensions.patch
+
+#patch0 -p1
+#patch1 -p1
+#patch2 -p1
+#patch3 -p1
+#patch4 -p1
+#patch5 -p1
+#patch8 -p1
+#patch9 -p1
+#patch12 -p1
+
+
+###
+### SECTION: Build
+###
+
+%build
+
+#   echo "build: $(pwd) " >> /tmp/pwd.log
+
+#define optflags -O2 -g
+#define optflags -O2 -march=native
+#define optflags -O2 -march=native -pipe
+%define optflags -O2 -march=native
+
+    %{configure} \
+        --disable-rpath           \
+        --enable-shared           \
+        --disable-pthread         \
+        --disable-install-doc     \
+        --disable-versioned-paths \
+        2>&1 | tee %{_builddir}/%{name}-%{version}-configure.my.log
+
+    make %{?_smp_mflags}
+        2>&1 | tee %{_builddir}/%{name}-%{version}-make.my.log
+
+#       --disable-tk              \
+
+#
+#       --with-rubylibprefix='%{ruby_libdir}'         \
+#             --with-archdir='%{ruby_libarchdir}'     \
+#             --with-sitedir='%{ruby_sitelibdir}'     \
+#         --with-sitearchdir='%{ruby_sitearchdir}'    \
+#           --with-vendordir='%{ruby_vendorlibdir}'   \
+#       --with-vendorarchdir='%{ruby_vendorarchdir}'  \
+#          --with-rubyhdrdir='%{_includedir}'         \
+#         --with-rubygemsdir='%{rubygems_dir}'        \
+#
+
+###
+### SECTION: Install
+###
+
+%install
+
+#   echo "install: $(pwd) " >> /tmp/pwd.log
+
+    rm -rf $RPM_BUILD_ROOT
+
+
+    # no doc for system ruby, please.
+    HOME_ROOT="$(echo ~root)"
+    mkdir -p ${RPM_BUILD_ROOT}/${HOME_ROOT}
+    echo "--no-ri --no-rdoc" > ${RPM_BUILD_ROOT}/${HOME_ROOT}/.gemrc
+
+
+    # install, please...
+    make install DESTDIR=$RPM_BUILD_ROOT \
+         2>&1 | tee %{_builddir}/%{name}-%{version}-make.my.install.log
+    # or
+    make DESTDIR=$RPM_BUILD_ROOT install \
+         2>&1 | tee %{_builddir}/%{name}-%{version}-make.my.install.log
+    # or
+    #{makeinstall}  2>&1 | tee %{_builddir}/make.my.install.log
+    # or
+    #'dot it by hand'
+    #{__install} -Dp -m0755 %{SOURCE1}  %{buildroot}%{_bindir}/ack
+    #{__install} -Dp -m0644 %{SOURCE2}  %{buildroot}%{_sysconfdir}/ackrc
+
+    # end-of-install: get list of files
+    cd %{buildroot}
+    find * > %{list_of_files}
+
+
+###
+### SECTION: Clean up
+###
+
+%clean
+
+#   echo "clean: $(pwd) " >> /tmp/pwd.log
+
+    # bye,bye tmp-installed-tree....
+    %{__rm} -rf $RPM_BUILD_ROOT
+
+    # final rpm: up one level
+    %{__mv} %{_rpmdir}/%{_arch}/*.rpm %{_rpmdir}
+
+    # after one level up: remove dir
+    rmdir   %{_rpmdir}/%{_arch} || :
+
+###
+### SECTION: Files
+###
+
+#files -f %{list_of_files}
+%files
+%defattr(-,root,root,-)
+
+%{_bindir}/ruby
+%{_bindir}/erb
+%{_bindir}/irb
+%{_bindir}/rdoc
+%{_bindir}/ri
+%{_bindir}/testrb
+
+%{_bindir}/gem
+%{_bindir}/rake
+
+%{_includedir}/ruby-%{ruby_abi}
+
+%{_libdir}/libruby*
+%{_libdir}/pkgconfig/ruby-%{major_minor_version}.pc
+%{_libdir}/ruby
+
+
+%{_mandir}/man1/erb*
+%{_mandir}/man1/irb*
+%{_mandir}/man1/rake*
+%{_mandir}/man1/ri*
+%{_mandir}/man1/ruby*
+
+%config(noreplace) /root/.gemrc
+
+%doc ChangeLog README COPYING GPL LEGAL
+%doc README.EXT
+%doc NEWS
+%doc doc/NEWS-*
+%doc doc/ChangeLog-*
+%lang(ja) %doc README.ja
+%lang(ja) %doc COPYING.ja
+%lang(ja) %doc README.EXT.ja
+
+###
+### SECTION: History of this spec
+###
+
+%changelog
+* Tue Dec 25 2012 Marcus Vinicius Ferreira <ferreira.mv@gmail.com>
+- ruby 1.9.3-362.
+- ruby by edenbr.
+
+# vim:ft=spec:
+
