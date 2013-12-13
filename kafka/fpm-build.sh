@@ -21,7 +21,7 @@ target=${target:-rpm}
 
 pkg="kafka"
 ver="0.8.0"
-rel='2.mv'
+rel='1.mv'
 
 work_dir=/tmp/work/
 build_dir=/tmp/build/${pkg}-${ver}
