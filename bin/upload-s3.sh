@@ -13,7 +13,7 @@ srpm='srpm'
 
 for f in *.src.rpm
 do
-  [ -f $f ] && echo "SOURCE rpm: [$f]"
+  [ -f $f ] && echo "SOURCE srpm: [$f]"
   s3cmd sync $f s3://${bucket}/${srpm}/${f}
   s3cmd setacl --acl-public s3://${bucket}/${srpm}/${f}
 done
